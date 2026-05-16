@@ -3,22 +3,27 @@
 // ==================================================
 // Wi-Fi
 // ==================================================
-#define WIFI_SSID      "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD  "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID      "xxxxxxxxxxxxxx"
+#define WIFI_PASSWORD  "xxxxxxxxxxxxxx"
 
 // Pi5 FastAPI server
 // 例: "http://server-address:8001/voice"
-#define VOICE_SERVER_URL "http://YOUR_PI5_IP:8001/voice"
+#define VOICE_SERVER_URL "http://server-address:8001/voice"
 
 // ==================================================
 // Recording
 // ==================================================
-#define SAMPLE_RATE_HZ       16000
-#define BITS_PER_SAMPLE      16
+// #define SAMPLE_RATE_HZ       16000
+#define SAMPLE_RATE_HZ       48000
+#define BITS_PER_SAMPLE      32
 #define CHANNEL_COUNT        1
 
 // 初期版は短めに固定。成功後に 15 / 30 秒へ伸ばす。
-#define RECORD_SECONDS       8
+// #define RECORD_SECONDS       8
+#define RECORD_SECONDS       4
+
+// 最大録音時間
+#define MAX_RECORD_SECONDS 15
 
 #define PCM_BYTES_PER_SEC    (SAMPLE_RATE_HZ * CHANNEL_COUNT * (BITS_PER_SAMPLE / 8))
 #define PCM_RECORD_BYTES     (PCM_BYTES_PER_SEC * RECORD_SECONDS)
@@ -37,7 +42,7 @@
 #define ECHO_I2S_DOUT  5
 #define ECHO_I2S_BCK   8
 
-#define SPEAKER_VOLUME_PERCENT 50
+#define SPEAKER_VOLUME_PERCENT 65
 
 // ==================================================
 // Dual Button Unit
@@ -54,9 +59,9 @@
 // ==================================================
 // Reply receive buffer
 // ==================================================
-#define MAX_REPLY_WAV_BYTES (1024 * 1024)  // 1MB
+#define MAX_REPLY_WAV_BYTES (4 * 1024 * 1024)  // 4MB
 
 // 初期版では false 推奨。
 // true にすると受信WAVの44バイトヘッダを除いて raw PCM として再生を試みます。
 // ただしOpenAI TTSのWAVサンプルレート次第で速度がズレる可能性があります。
-#define TRY_PLAY_REPLY_ON_DEVICE false
+#define TRY_PLAY_REPLY_ON_DEVICE true
