@@ -26,6 +26,92 @@ static bool lastButtonB = false;
 // Utility
 // ==================================================
 
+// static void drawSpinnerScreen(const char* label, int frame) {
+//   const char spinner[] = "|/-\\";
+//   char s[2] = { spinner[frame % 4], '\0' };
+
+//   M5.Display.fillScreen(TFT_BLACK);
+//   M5.Display.setTextDatum(MC_DATUM);
+
+//   M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
+//   M5.Display.setTextSize(2);
+//   M5.Display.drawString(label, M5.Display.width() / 2, M5.Display.height() / 2 - 20);
+
+//   M5.Display.setTextSize(4);
+//   M5.Display.drawString(s, M5.Display.width() / 2, M5.Display.height() / 2 + 18);
+
+//   M5.Display.setTextDatum(TL_DATUM);
+// }
+
+
+static void drawMessageScreen(
+  const char* label,
+  const char* subText,
+  uint16_t bgColor = TFT_BLACK,
+  uint16_t textColor = TFT_YELLOW) {
+  M5.Display.fillScreen(bgColor);
+  M5.Display.setTextDatum(MC_DATUM);
+
+  M5.Display.setTextColor(textColor, bgColor);
+
+  M5.Display.setTextSize(2);
+  M5.Display.drawString(
+    label,
+    M5.Display.width() / 2,
+    M5.Display.height() / 2 - 12);
+
+  M5.Display.setTextSize(1);
+  M5.Display.drawString(
+    subText,
+    M5.Display.width() / 2,
+    M5.Display.height() / 2 + 22);
+
+  M5.Display.setTextDatum(TL_DATUM);
+}
+
+static void drawSpinnerScreen(
+  const char* label,
+  int frame,
+  const char* subText = nullptr) {
+  const char spinner[] = "|/-\\";
+  char s[2] = { spinner[frame % 4], '\0' };
+
+  M5.Display.fillScreen(TFT_BLACK);
+
+  M5.Display.setTextDatum(MC_DATUM);
+
+  // Main label
+  M5.Display.setTextColor(TFT_YELLOW, TFT_BLACK);
+  M5.Display.setTextSize(2);
+
+  M5.Display.drawString(
+    label,
+    M5.Display.width() / 2,
+    M5.Display.height() / 2 - 24);
+
+  // Spinner
+  M5.Display.setTextSize(4);
+
+  M5.Display.drawString(
+    s,
+    M5.Display.width() / 2,
+    M5.Display.height() / 2 + 4);
+
+  // Optional sub text
+  if (subText) {
+    M5.Display.setTextSize(1);
+
+    M5.Display.drawString(
+      subText,
+      M5.Display.width() / 2,
+      M5.Display.height() / 2 + 36);
+  }
+
+  M5.Display.setTextDatum(TL_DATUM);
+}
+
+
+
 static bool readButtonRaw(int pin) {
   int v = digitalRead(pin);
 #if BUTTON_ACTIVE_LOW
@@ -225,7 +311,21 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
   HTTPClient http;
   http.setTimeout(60000);
 
-  drawStatus("POST /voice", "sending...");
+  // drawStatus("POST /voice", "sending...");
+  // drawSpinnerScreen("SEND", 0);
+  // drawSpinnerScreen(
+  //   "SENDING",
+  //   0,
+  //   "Please wait...");
+
+
+  drawMessageScreen(
+    "SENDING",
+    "Please wait...",
+    TFT_BLACK,
+    TFT_YELLOW);
+
+    
 
   bool ok = false;
   *replySizeOut = 0;
@@ -252,8 +352,20 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
         size_t total = 0;
         uint32_t startMs = millis();
 
+
+        int spinnerFrame = 0;
+        uint32_t lastSpinnerMs = 0;
+        drawSpinnerScreen("WAIT", spinnerFrame);
+
         while (http.connected() && total < (size_t)contentLength) {
           size_t available = stream->available();
+
+
+          if (millis() - lastSpinnerMs > 200) {
+            lastSpinnerMs = millis();
+            spinnerFrame++;
+            drawSpinnerScreen("WAIT", spinnerFrame);
+          }
 
           if (available) {
             size_t toRead = available;
