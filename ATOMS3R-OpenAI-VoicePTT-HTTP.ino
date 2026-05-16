@@ -49,6 +49,63 @@ static void drawStatus(const char* line1, const char* line2 = nullptr) {
   if (line2) Serial.println(line2);
 }
 
+
+
+static void drawButtonPrompt() {
+  int w = M5.Display.width();
+  int h = M5.Display.height();
+
+  M5.Display.fillScreen(TFT_BLACK);
+
+  // Left: A button / Blue
+  M5.Display.fillRect(0, 0, w / 2, h, TFT_BLUE);
+
+  // Right: B button / Red
+  M5.Display.fillRect(w / 2, 0, w - (w / 2), h, TFT_RED);
+
+  M5.Display.setTextDatum(MC_DATUM);
+
+  M5.Display.setTextColor(TFT_WHITE, TFT_BLUE);
+  M5.Display.setTextSize(4);
+  M5.Display.drawString("A", w / 4, h / 2 - 18);
+
+  M5.Display.setTextSize(1);
+  M5.Display.drawString("REC", w / 4, h / 2 + 18);
+
+  M5.Display.setTextColor(TFT_WHITE, TFT_RED);
+  M5.Display.setTextSize(4);
+  M5.Display.drawString("B", w * 3 / 4, h / 2 - 18);
+
+  M5.Display.setTextSize(1);
+  M5.Display.drawString("STAT", w * 3 / 4, h / 2 + 18);
+
+  M5.Display.setTextDatum(TL_DATUM);
+
+  Serial.println("Ready: A=REC / B=STAT");
+}
+
+static void drawRecordingScreen() {
+  M5.Display.fillScreen(TFT_BLUE);
+
+  M5.Display.setTextDatum(MC_DATUM);
+
+  M5.Display.setTextColor(TFT_WHITE, TFT_BLUE);
+
+  M5.Display.setTextSize(5);
+  M5.Display.drawString("REC", M5.Display.width() / 2,
+                        M5.Display.height() / 2 - 10);
+
+  M5.Display.setTextSize(1);
+  M5.Display.drawString("Speak now",
+                        M5.Display.width() / 2,
+                        M5.Display.height() / 2 + 30);
+
+  M5.Display.setTextDatum(TL_DATUM);
+
+  Serial.println("Recording...");
+}
+
+
 static void connectWiFi() {
   drawStatus("WiFi connecting");
 
@@ -148,8 +205,7 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
 
   uint8_t* body = (uint8_t*)heap_caps_malloc(
     bodySize,
-    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
-  );
+    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 
   if (!body) {
     drawStatus("POST body alloc", "FAILED");
@@ -248,7 +304,9 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
 // ==================================================
 
 static bool recordOnce() {
-  drawStatus("Recording", "speak now");
+  // drawStatus("Recording", "speak now");
+
+  drawRecordingScreen();
 
   Serial.printf("Recording %d sec, %u bytes\n", RECORD_SECONDS, PCM_RECORD_BYTES);
 
@@ -322,18 +380,15 @@ void setup() {
 
   pcmBuffer = (uint8_t*)heap_caps_malloc(
     PCM_RECORD_BYTES,
-    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
-  );
+    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 
   wavBuffer = (uint8_t*)heap_caps_malloc(
     WAV_TOTAL_BYTES,
-    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
-  );
+    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 
   replyBuffer = (uint8_t*)heap_caps_malloc(
     MAX_REPLY_WAV_BYTES,
-    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT
-  );
+    MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 
   if (!pcmBuffer || !wavBuffer || !replyBuffer) {
     drawStatus("Buffer alloc failed");
@@ -358,8 +413,7 @@ void setup() {
     ECHO_I2S_WS,
     ECHO_I2S_DOUT,
     ECHO_I2S_BCK,
-    Wire
-  );
+    Wire);
 
   echobase.setSpeakerVolume(SPEAKER_VOLUME_PERCENT);
   echobase.setMicGain(ES8311_MIC_GAIN_6DB);
@@ -367,7 +421,7 @@ void setup() {
 
   connectWiFi();
 
-  drawStatus("Ready", "A: record/send");
+  drawButtonPrompt();
 }
 
 // ==================================================
@@ -399,7 +453,7 @@ void loop() {
       }
 
       delay(1000);
-      drawStatus("Ready", "A: record/send");
+      drawButtonPrompt();
     }
   }
 
@@ -409,7 +463,7 @@ void loop() {
     drawStatus("Status",
                WiFi.isConnected() ? "WiFi OK" : "WiFi NG");
     delay(800);
-    drawStatus("Ready", "A: record/send");
+    drawButtonPrompt();
   }
 
   lastButtonA = buttonA;
