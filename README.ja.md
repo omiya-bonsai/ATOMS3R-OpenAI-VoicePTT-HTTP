@@ -234,3 +234,9 @@ Gitタグによる小刻み管理を強く推奨。
 MIT License
 
 Copyright (c) 2026 omiya-bonsai
+
+---
+
+# AI 利用について
+
+このリポジトリ、そのドキュメント、および関連アセットの一部は、Codex app や GitHub Copilot などの AI ツールの支援を受けて作成・更新しています。

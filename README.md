@@ -216,3 +216,9 @@ Use small, tagged increments to avoid breaking the system.
 
 - Pi5 server: [omiya-bonsai/openai-voice-terminal](https://github.com/omiya-bonsai/openai-voice-terminal)
 - Integration docs: [omiya-bonsai/openai-voice-terminal-system](https://github.com/omiya-bonsai/openai-voice-terminal-system)
+
+---
+
+# AI Assistance
+
+Parts of this repository, its documentation, and related assets were developed with assistance from AI tools including Codex app and GitHub Copilot.
