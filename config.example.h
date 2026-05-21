@@ -7,7 +7,7 @@
 #define WIFI_PASSWORD  "xxxxxxxxxxxxxx"
 
 // Pi5 FastAPI server
-// 例: "http://server-address:8001/voice"
+// Example: "http://server-address:8001/voice"
 #define VOICE_SERVER_URL "http://server-address:8001/voice"
 
 // ==================================================
