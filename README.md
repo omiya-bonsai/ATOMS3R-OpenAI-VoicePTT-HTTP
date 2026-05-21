@@ -218,7 +218,4 @@ Use small, tagged increments to avoid breaking the system.
 # Photos
 
 ![Photo 1](./images/img_8898.jpg)
-![Photo 2](./images/img_8899.jpg)
-![Photo 3](./images/img_8900.jpg)
-![Photo 4](./images/img_8901.jpg)
-![Photo 5](./images/img_8902.jpg)
+![Photos 2-5 Collage](./images/img_8899_8902_collage.jpg)

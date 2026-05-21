@@ -236,7 +236,4 @@ Copyright (c) 2026 omiya-bonsai
 # 写真
 
 ![写真1](./images/img_8898.jpg)
-![写真2](./images/img_8899.jpg)
-![写真3](./images/img_8900.jpg)
-![写真4](./images/img_8901.jpg)
-![写真5](./images/img_8902.jpg)
+![写真2-5コラージュ](./images/img_8899_8902_collage.jpg)
