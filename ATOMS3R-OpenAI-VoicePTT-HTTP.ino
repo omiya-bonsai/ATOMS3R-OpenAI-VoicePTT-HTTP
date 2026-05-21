@@ -21,6 +21,24 @@ static uint8_t* replyBuffer = nullptr;
 
 static bool lastButtonA = false;
 static bool lastButtonB = false;
+static volatile bool cancelRequested = false;
+
+enum class AppState {
+  IDLE,
+  RECORDING,
+  SENDING,
+  WAITING_REPLY,
+  PLAYING
+};
+
+enum class OpResult {
+  OK,
+  CANCELLED,
+  ERROR
+};
+
+static AppState appState = AppState::IDLE;
+static constexpr size_t RECORD_CHUNK_MS = 200;
 
 // ==================================================
 // Utility
@@ -143,31 +161,31 @@ static void drawButtonPrompt() {
 
   M5.Display.fillScreen(TFT_BLACK);
 
-  // Left: A button / Blue
-  M5.Display.fillRect(0, 0, w / 2, h, TFT_BLUE);
+  // Top: A button / Blue
+  M5.Display.fillRect(0, 0, w, h / 2, TFT_BLUE);
 
-  // Right: B button / Red
-  M5.Display.fillRect(w / 2, 0, w - (w / 2), h, TFT_RED);
+  // Bottom: B button / Red
+  M5.Display.fillRect(0, h / 2, w, h - (h / 2), TFT_RED);
 
   M5.Display.setTextDatum(MC_DATUM);
 
   M5.Display.setTextColor(TFT_WHITE, TFT_BLUE);
   M5.Display.setTextSize(4);
-  M5.Display.drawString("A", w / 4, h / 2 - 18);
+  M5.Display.drawString("A", w / 2, h / 4 - 12);
 
   M5.Display.setTextSize(1);
-  M5.Display.drawString("REC", w / 4, h / 2 + 18);
+  M5.Display.drawString("REC", w / 2, h / 4 + 20);
 
   M5.Display.setTextColor(TFT_WHITE, TFT_RED);
   M5.Display.setTextSize(4);
-  M5.Display.drawString("B", w * 3 / 4, h / 2 - 18);
+  M5.Display.drawString("B", w / 2, h * 3 / 4 - 12);
 
   M5.Display.setTextSize(1);
-  M5.Display.drawString("STAT", w * 3 / 4, h / 2 + 18);
+  M5.Display.drawString("CANSEL", w / 2, h * 3 / 4 + 20);
 
   M5.Display.setTextDatum(TL_DATUM);
 
-  Serial.println("Ready: A=REC / B=STAT");
+  Serial.println("Ready: A=REC / B=CANSEL");
 }
 
 static void drawRecordingScreen() {
@@ -221,6 +239,12 @@ static void connectWiFi() {
   M5.Display.println(WiFi.localIP().toString());
 }
 
+static void pollCancelButton() {
+  if (readButtonRaw(BUTTON_B_PIN)) {
+    cancelRequested = true;
+  }
+}
+
 // ==================================================
 // WAV Header
 // ==================================================
@@ -271,7 +295,7 @@ static void buildWavFromPcm() {
 // Multipart POST
 // ==================================================
 
-static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* replySizeOut) {
+static OpResult postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* replySizeOut) {
   if (WiFi.status() != WL_CONNECTED) {
     drawStatus("WiFi lost", "Reconnect...");
     connectWiFi();
@@ -295,7 +319,7 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
 
   if (!body) {
     drawStatus("POST body alloc", "FAILED");
-    return false;
+    return OpResult::ERROR;
   }
 
   size_t offset = 0;
@@ -324,10 +348,9 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
     "Please wait...",
     TFT_BLACK,
     TFT_YELLOW);
+  appState = AppState::SENDING;
 
-    
-
-  bool ok = false;
+  OpResult result = OpResult::ERROR;
   *replySizeOut = 0;
 
   if (http.begin(VOICE_SERVER_URL)) {
@@ -356,8 +379,16 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
         int spinnerFrame = 0;
         uint32_t lastSpinnerMs = 0;
         drawSpinnerScreen("WAIT", spinnerFrame);
+        appState = AppState::WAITING_REPLY;
 
         while (http.connected() && total < (size_t)contentLength) {
+          pollCancelButton();
+          if (cancelRequested) {
+            drawStatus("Cancelled");
+            result = OpResult::CANCELLED;
+            break;
+          }
+
           size_t available = stream->available();
 
 
@@ -383,6 +414,7 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
 
           if (millis() - startMs > 60000) {
             drawStatus("Reply timeout");
+            result = OpResult::ERROR;
             break;
           }
         }
@@ -391,8 +423,12 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
 
         Serial.printf("Reply received: %u bytes\n", (unsigned)total);
 
-        if (total > 128) {
-          ok = true;
+        if (result != OpResult::CANCELLED) {
+          if (total > 128) {
+            result = OpResult::OK;
+          } else {
+            result = OpResult::ERROR;
+          }
         }
       }
     } else {
@@ -400,24 +436,31 @@ static bool postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* repl
       Serial.println("Server error body:");
       Serial.println(err);
       drawStatus("HTTP error", String(code).c_str());
+      result = OpResult::ERROR;
     }
 
     http.end();
   } else {
     drawStatus("HTTP begin failed");
+    result = OpResult::ERROR;
   }
 
   heap_caps_free(body);
-  return ok;
+  return result;
 }
 
 // ==================================================
 // Recording
 // ==================================================
 
-static bool recordOnce() {
+static OpResult recordOnce() {
   // drawStatus("Recording", "speak now");
 
+  if (cancelRequested) {
+    return OpResult::CANCELLED;
+  }
+
+  appState = AppState::RECORDING;
   drawRecordingScreen();
 
   Serial.printf("Recording %d sec, %u bytes\n", RECORD_SECONDS, PCM_RECORD_BYTES);
@@ -428,22 +471,49 @@ static bool recordOnce() {
   echobase.setMute(true);
   delay(20);
 
-  // M5Atomic-EchoBase の公式APIは指定バイト数分をブロッキング録音する
-  echobase.record(pcmBuffer, PCM_RECORD_BYTES);
+  // 録音を短チャンクに分け、各チャンク間でBキャンセルを検知する。
+  const size_t sampleBytes = CHANNEL_COUNT * (BITS_PER_SAMPLE / 8);
+  size_t chunkBytes = (PCM_BYTES_PER_SEC * RECORD_CHUNK_MS) / 1000;
+  if (chunkBytes < sampleBytes) {
+    chunkBytes = sampleBytes;
+  }
+  chunkBytes = (chunkBytes / sampleBytes) * sampleBytes;
+
+  size_t recorded = 0;
+  while (recorded < PCM_RECORD_BYTES) {
+    pollCancelButton();
+    if (cancelRequested) {
+      drawStatus("Recording cancelled");
+      memset(pcmBuffer, 0, PCM_RECORD_BYTES);
+      return OpResult::CANCELLED;
+    }
+
+    size_t toRecord = chunkBytes;
+    if (toRecord > (PCM_RECORD_BYTES - recorded)) {
+      toRecord = PCM_RECORD_BYTES - recorded;
+    }
+    echobase.record(pcmBuffer + recorded, toRecord);
+    recorded += toRecord;
+  }
 
   delay(50);
 
   drawStatus("Recording done");
-  return true;
+  return OpResult::OK;
 }
 
-static void tryPlayReply(size_t replySize) {
+static OpResult tryPlayReply(size_t replySize) {
 #if TRY_PLAY_REPLY_ON_DEVICE
-  if (replySize <= WAV_HEADER_BYTES) {
-    drawStatus("Reply too small");
-    return;
+  if (cancelRequested) {
+    return OpResult::CANCELLED;
   }
 
+  if (replySize <= WAV_HEADER_BYTES) {
+    drawStatus("Reply too small");
+    return OpResult::ERROR;
+  }
+
+  appState = AppState::PLAYING;
   drawStatus("Playing reply");
 
   echobase.setMute(false);
@@ -456,10 +526,16 @@ static void tryPlayReply(size_t replySize) {
 
   delay(50);
   echobase.setMute(true);
+  pollCancelButton();
+  if (cancelRequested) {
+    drawStatus("Playback cancelled");
+    return OpResult::CANCELLED;
+  }
 #else
   (void)replySize;
   drawStatus("Reply received", "playback skipped");
 #endif
+  return OpResult::OK;
 }
 
 // ==================================================
@@ -549,33 +625,48 @@ void loop() {
   // A: record and send
   if (buttonA && !lastButtonA) {
     Serial.println("Button A pressed");
+    cancelRequested = false;
+    appState = AppState::IDLE;
 
-    if (recordOnce()) {
+    if (recordOnce() == OpResult::OK) {
       drawStatus("Build WAV");
       buildWavFromPcm();
 
       size_t replySize = 0;
-      bool ok = postWavToServer(wavBuffer, WAV_TOTAL_BYTES, &replySize);
+      OpResult postResult = postWavToServer(wavBuffer, WAV_TOTAL_BYTES, &replySize);
 
-      if (ok) {
+      if (postResult == OpResult::OK) {
         Serial.printf("Reply OK: %u bytes\n", (unsigned)replySize);
-        tryPlayReply(replySize);
+        (void)tryPlayReply(replySize);
+      } else if (postResult == OpResult::CANCELLED) {
+        drawStatus("Cancelled");
       } else {
         drawStatus("POST failed");
       }
 
       delay(1000);
       drawButtonPrompt();
+      cancelRequested = false;
+      appState = AppState::IDLE;
+    } else {
+      delay(500);
+      drawButtonPrompt();
+      cancelRequested = false;
+      appState = AppState::IDLE;
     }
   }
 
-  // B: status / cancel placeholder
+  // B: cancel current operation
   if (buttonB && !lastButtonB) {
     Serial.println("Button B pressed");
-    drawStatus("Status",
-               WiFi.isConnected() ? "WiFi OK" : "WiFi NG");
-    delay(800);
-    drawButtonPrompt();
+    cancelRequested = true;
+    if (appState == AppState::IDLE) {
+      drawStatus("No active op");
+      delay(600);
+      drawButtonPrompt();
+    } else {
+      drawStatus("Cancel requested");
+    }
   }
 
   lastButtonA = buttonA;
