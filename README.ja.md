@@ -14,6 +14,8 @@ Raspberry Pi 5 経由で OpenAI API と音声対話を行うプロジェクト�
 - OpenAI TTS による音声生成
 - AtomS3R 側で音声再生
 
+![写真1](./images/img_8898.jpg)
+
 まで動作確認済みです。
 
 ---
@@ -81,6 +83,8 @@ Pi5で WAV 正規化
 ↓
 AtomS3Rで再生
 ```
+
+![写真2-5コラージュ](./images/img_8899_8902_collage.jpg)
 
 ---
 
@@ -230,10 +234,3 @@ Gitタグによる小刻み管理を強く推奨。
 MIT License
 
 Copyright (c) 2026 omiya-bonsai
-
----
-
-# 写真
-
-![写真1](./images/img_8898.jpg)
-![写真2-5コラージュ](./images/img_8899_8902_collage.jpg)

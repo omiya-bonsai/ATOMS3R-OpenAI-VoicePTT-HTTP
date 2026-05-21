@@ -14,6 +14,8 @@ Current verified flow:
 - OpenAI TTS generation
 - Playback on AtomS3R
 
+![Photo 1](./images/img_8898.jpg)
+
 ---
 
 # Current Setup
@@ -72,6 +74,8 @@ Record
 -> Normalize WAV on Pi5
 -> Play on AtomS3R
 ```
+
+![Photos 2-5 Collage](./images/img_8899_8902_collage.jpg)
 
 ---
 
@@ -212,10 +216,3 @@ Use small, tagged increments to avoid breaking the system.
 
 - Pi5 server: [omiya-bonsai/openai-voice-terminal](https://github.com/omiya-bonsai/openai-voice-terminal)
 - Integration docs: [omiya-bonsai/openai-voice-terminal-system](https://github.com/omiya-bonsai/openai-voice-terminal-system)
-
----
-
-# Photos
-
-![Photo 1](./images/img_8898.jpg)
-![Photos 2-5 Collage](./images/img_8899_8902_collage.jpg)
