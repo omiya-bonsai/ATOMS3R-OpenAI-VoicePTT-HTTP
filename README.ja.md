@@ -1,3 +1,5 @@
+[English (README.md)](./README.md)
+
 # ATOMS3R OpenAI Voice PTT HTTP
 
 AtomS3R + Atomic Voice Base + Dual Button Unit を利用し、
@@ -228,4 +230,3 @@ Gitタグによる小刻み管理を強く推奨。
 MIT License
 
 Copyright (c) 2026 omiya-bonsai
-
