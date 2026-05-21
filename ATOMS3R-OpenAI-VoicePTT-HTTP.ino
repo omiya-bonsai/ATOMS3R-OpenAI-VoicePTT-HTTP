@@ -39,6 +39,7 @@ enum class OpResult {
 
 static AppState appState = AppState::IDLE;
 static constexpr size_t RECORD_CHUNK_MS = 200;
+static constexpr size_t PLAYBACK_CHUNK_MS = 120;
 
 // ==================================================
 // Utility
@@ -171,17 +172,17 @@ static void drawButtonPrompt() {
 
   M5.Display.setTextColor(TFT_WHITE, TFT_BLUE);
   M5.Display.setTextSize(4);
-  M5.Display.drawString("A", w / 2, h / 4 - 12);
+  M5.Display.drawString("A", w / 2 - 22, h / 4);
 
   M5.Display.setTextSize(1);
-  M5.Display.drawString("REC", w / 2, h / 4 + 20);
+  M5.Display.drawString("REC", w / 2 + 20, h / 4);
 
   M5.Display.setTextColor(TFT_WHITE, TFT_RED);
   M5.Display.setTextSize(4);
-  M5.Display.drawString("B", w / 2, h * 3 / 4 - 12);
+  M5.Display.drawString("B", w / 2 - 22, h * 3 / 4);
 
   M5.Display.setTextSize(1);
-  M5.Display.drawString("CANSEL", w / 2, h * 3 / 4 + 20);
+  M5.Display.drawString("CANSEL", w / 2 + 20, h * 3 / 4);
 
   M5.Display.setTextDatum(TL_DATUM);
 
@@ -522,15 +523,33 @@ static OpResult tryPlayReply(size_t replySize) {
   // 注意:
   // ここでは WAV 44バイトヘッダを単純に飛ばして raw PCM として再生を試みます。
   // OpenAI TTSのサンプルレートが16kHzでない場合、速度や音程がズレます。
-  echobase.play(replyBuffer + WAV_HEADER_BYTES, replySize - WAV_HEADER_BYTES);
+  const size_t sampleBytes = CHANNEL_COUNT * (BITS_PER_SAMPLE / 8);
+  size_t chunkBytes = (PCM_BYTES_PER_SEC * PLAYBACK_CHUNK_MS) / 1000;
+  if (chunkBytes < sampleBytes) {
+    chunkBytes = sampleBytes;
+  }
+  chunkBytes = (chunkBytes / sampleBytes) * sampleBytes;
+
+  size_t played = 0;
+  const size_t payloadBytes = replySize - WAV_HEADER_BYTES;
+  while (played < payloadBytes) {
+    pollCancelButton();
+    if (cancelRequested) {
+      echobase.setMute(true);
+      drawStatus("Playback cancelled");
+      return OpResult::CANCELLED;
+    }
+
+    size_t toPlay = chunkBytes;
+    if (toPlay > (payloadBytes - played)) {
+      toPlay = payloadBytes - played;
+    }
+    echobase.play(replyBuffer + WAV_HEADER_BYTES + played, toPlay);
+    played += toPlay;
+  }
 
   delay(50);
   echobase.setMute(true);
-  pollCancelButton();
-  if (cancelRequested) {
-    drawStatus("Playback cancelled");
-    return OpResult::CANCELLED;
-  }
 #else
   (void)replySize;
   drawStatus("Reply received", "playback skipped");
