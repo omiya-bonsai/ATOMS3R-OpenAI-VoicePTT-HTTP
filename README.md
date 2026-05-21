@@ -212,3 +212,13 @@ Use small, tagged increments to avoid breaking the system.
 
 - Pi5 server: [omiya-bonsai/openai-voice-terminal](https://github.com/omiya-bonsai/openai-voice-terminal)
 - Integration docs: [omiya-bonsai/openai-voice-terminal-system](https://github.com/omiya-bonsai/openai-voice-terminal-system)
+
+---
+
+# Photos
+
+![Photo 1](./images/img_8898.jpg)
+![Photo 2](./images/img_8899.jpg)
+![Photo 3](./images/img_8900.jpg)
+![Photo 4](./images/img_8901.jpg)
+![Photo 5](./images/img_8902.jpg)
