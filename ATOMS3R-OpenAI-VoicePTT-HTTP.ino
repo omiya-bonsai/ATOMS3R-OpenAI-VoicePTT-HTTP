@@ -40,6 +40,7 @@ enum class OpResult {
 static AppState appState = AppState::IDLE;
 static constexpr size_t RECORD_CHUNK_MS = 200;
 static constexpr size_t PLAYBACK_CHUNK_MS = 120;
+static constexpr size_t MIN_VALID_RECORD_BYTES = 3200;
 
 // ==================================================
 // Utility
@@ -201,7 +202,7 @@ static void drawRecordingScreen() {
                         M5.Display.height() / 2 - 10);
 
   M5.Display.setTextSize(1);
-  M5.Display.drawString("Speak now",
+  M5.Display.drawString("Hold A to record",
                         M5.Display.width() / 2,
                         M5.Display.height() / 2 + 30);
 
@@ -287,9 +288,9 @@ static void makeWavHeader(uint8_t* header, uint32_t pcmBytes) {
   writeLE32(header + 40, pcmBytes);
 }
 
-static void buildWavFromPcm() {
-  makeWavHeader(wavBuffer, PCM_RECORD_BYTES);
-  memcpy(wavBuffer + WAV_HEADER_BYTES, pcmBuffer, PCM_RECORD_BYTES);
+static void buildWavFromPcm(size_t pcmBytes) {
+  makeWavHeader(wavBuffer, pcmBytes);
+  memcpy(wavBuffer + WAV_HEADER_BYTES, pcmBuffer, pcmBytes);
 }
 
 // ==================================================
@@ -454,9 +455,10 @@ static OpResult postWavToServer(const uint8_t* wavData, size_t wavSize, size_t* 
 // Recording
 // ==================================================
 
-static OpResult recordOnce() {
+static OpResult recordWithPtt(size_t* recordedBytesOut) {
   // drawStatus("Recording", "speak now");
 
+  *recordedBytesOut = 0;
   if (cancelRequested) {
     return OpResult::CANCELLED;
   }
@@ -480,6 +482,8 @@ static OpResult recordOnce() {
   }
   chunkBytes = (chunkBytes / sampleBytes) * sampleBytes;
 
+  const uint32_t maxRecordMs = (uint32_t)MAX_RECORD_SECONDS * 1000U;
+  uint32_t recordStartMs = millis();
   size_t recorded = 0;
   while (recorded < PCM_RECORD_BYTES) {
     pollCancelButton();
@@ -487,6 +491,13 @@ static OpResult recordOnce() {
       drawStatus("Recording cancelled");
       memset(pcmBuffer, 0, PCM_RECORD_BYTES);
       return OpResult::CANCELLED;
+    }
+    if (!readButtonRaw(BUTTON_A_PIN)) {
+      break;
+    }
+    if (millis() - recordStartMs >= maxRecordMs) {
+      drawStatus("Max record reached");
+      break;
     }
 
     size_t toRecord = chunkBytes;
@@ -498,8 +509,9 @@ static OpResult recordOnce() {
   }
 
   delay(50);
+  *recordedBytesOut = recorded;
 
-  drawStatus("Recording done");
+  drawStatus("Recording done", String((unsigned)recorded).c_str());
   return OpResult::OK;
 }
 
@@ -647,12 +659,28 @@ void loop() {
     cancelRequested = false;
     appState = AppState::IDLE;
 
-    if (recordOnce() == OpResult::OK) {
+    size_t recordedBytes = 0;
+    if (recordWithPtt(&recordedBytes) == OpResult::OK) {
+      if (recordedBytes < MIN_VALID_RECORD_BYTES) {
+        drawStatus("Too short");
+        delay(500);
+        drawButtonPrompt();
+        cancelRequested = false;
+        appState = AppState::IDLE;
+        lastButtonA = buttonA;
+        lastButtonB = buttonB;
+        delay(20);
+        return;
+      }
+
       drawStatus("Build WAV");
-      buildWavFromPcm();
+      buildWavFromPcm(recordedBytes);
 
       size_t replySize = 0;
-      OpResult postResult = postWavToServer(wavBuffer, WAV_TOTAL_BYTES, &replySize);
+      OpResult postResult = postWavToServer(
+        wavBuffer,
+        WAV_HEADER_BYTES + recordedBytes,
+        &replySize);
 
       if (postResult == OpResult::OK) {
         Serial.printf("Reply OK: %u bytes\n", (unsigned)replySize);
