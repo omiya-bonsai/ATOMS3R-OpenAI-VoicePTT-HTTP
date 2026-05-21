@@ -219,6 +219,12 @@ Use small, tagged increments to avoid breaking the system.
 
 ---
 
+# License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).
+
+---
+
 # AI Assistance
 
 Parts of this repository, its documentation, and related assets were developed with assistance from AI tools including Codex app and GitHub Copilot.
