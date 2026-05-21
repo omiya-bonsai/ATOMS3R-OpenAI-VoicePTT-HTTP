@@ -35,3 +35,7 @@ out/
 
 # Logs
 *.log
+
+AGENTS.md
+docs/
+generic_codex_docs_driven_template_plus.md
